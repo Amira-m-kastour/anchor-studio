@@ -1,0 +1,65 @@
+name: Build ANCHOR Studio apps
+
+# Run it by hand (Actions tab > "Build ANCHOR Studio apps" > Run workflow),
+# or publish a release with a tag such as v1.0.0 to attach the apps to that release.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Windows installer
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        shell: pwsh
+        run: ./build/windows/build.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ANCHOR-Studio-Windows
+          path: |
+            dist/*.exe
+            dist/*.zip
+          compression-level: 0
+
+  macos:
+    name: macOS ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14        # Apple silicon (M1-M4)
+            arch: arm64
+          - runner: macos-15-intel  # Intel Macs
+            arch: x86_64
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: bash build/macos/build.sh ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ANCHOR-Studio-macOS-${{ matrix.arch }}
+          path: dist/*.dmg
+          compression-level: 0
+
+  release:
+    name: Attach to release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: out/*

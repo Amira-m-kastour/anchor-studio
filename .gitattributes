@@ -1,0 +1,9 @@
+*.bat text eol=crlf
+*.iss text eol=crlf
+*.ps1 text eol=crlf
+*.sh text eol=lf
+build/macos/launcher.sh text eol=lf
+*.R text eol=lf
+*.ico binary
+*.icns binary
+*.png binary

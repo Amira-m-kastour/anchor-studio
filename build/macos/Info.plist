@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key><string>ANCHOR Studio</string>
+  <key>CFBundleDisplayName</key><string>ANCHOR Studio</string>
+  <key>CFBundleIdentifier</key><string>org.anchorframework.studio</string>
+  <key>CFBundleVersion</key><string>@VERSION@</string>
+  <key>CFBundleShortVersionString</key><string>@VERSION@</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleExecutable</key><string>ANCHOR Studio</string>
+  <key>CFBundleIconFile</key><string>anchor</string>
+  <key>LSMinimumSystemVersion</key><string>11.0</string>
+  <key>NSHighResolutionCapable</key><true/>
+  <key>NSHumanReadableCopyright</key><string>ANCHOR Studio by A. Mamdouh Kastour (A. Mamdouh Kastour’s Scholarly Anchor). © 2026 Amira Mamdouh Kastour. Includes R @RVERSION@ and bibliometrix.</string>
+  <key>CFBundleGetInfoString</key><string>ANCHOR Studio @VERSION@ by A. Mamdouh Kastour</string>
+</dict>
+</plist>

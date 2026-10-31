@@ -1,0 +1,20 @@
+ANCHOR Studio for macOS
+by A. Mamdouh Kastour · A. Mamdouh Kastour’s Scholarly Anchor
+
+1. Drag "ANCHOR Studio" onto "Applications".
+2. Open it from Applications. The first time, macOS says it cannot verify the
+   developer, because the app is free and not registered with Apple:
+   - macOS 15 or newer: click "Done", then open System Settings > Privacy & Security,
+     scroll down and click "Open Anyway" next to ANCHOR Studio.
+   - macOS 14 or older: right-click the app, choose "Open", then "Open".
+3. If R is not on your Mac yet (or a different R version is), the app offers to
+   install the R version it includes. This is needed once, and asks for your Mac password.
+
+The app opens in its own window: Google Chrome or Microsoft Edge app mode if
+installed, otherwise Safari. It stops by itself about 20 seconds after you close
+that window. Your work is autosaved every minute.
+If something goes wrong, the log is in ~/Library/Logs/ANCHOR Studio.log
+
+Author: Amira Mamdouh Kastour. Bibliometrics: bibliometrix (Aria & Cuccurullo, 2017).
+
+In tribute to my father, Mamdouh Kastour (1950–2020).

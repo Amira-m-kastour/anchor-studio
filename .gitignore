@@ -1,0 +1,11 @@
+dist/
+.Rhistory
+Rplots.pdf
+*.pdf
+!docs/*.pdf
+# never commit: projects, keys, licensed data, candidate PDFs
+*.anchor
+*.rds
+.Renviron
+settings*
+focal_candidates/
