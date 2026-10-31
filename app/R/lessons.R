@@ -142,11 +142,16 @@ online_note <- function(st) {
   else sprintf("References as built into ANCHOR Studio %s (checked %s); not re-checked online for this report.", APP_VERSION, LESSONS_ASOF)
 }
 ds_findings <- function(st) {
-  d <- st$online_ds; if (is.null(d) || !is.null(d$error)) return(NULL)
-  fl <- d$flagged
-  list(text = if (is.null(fl) || !nrow(fl)) sprintf("Retraction check of the bibliometric dataset (%s): %d of %d records have a DOI; none is retracted according to OpenAlex.", d$checked_at, d$n_doi, d$n_records)
-              else sprintf("Retraction check of the bibliometric dataset (%s): %d retracted record(s) found among %d records with a DOI.", d$checked_at, nrow(fl), d$n_doi),
-       table = if (!is.null(fl) && nrow(fl)) data.frame(Record = fl$record, DOI = fl$doi, Notice = fl$notice) else NULL)
+  d <- st$online_ds; rr <- st$biblio$retracted_removed
+  if ((is.null(d) || !is.null(d$error)) && !NROW(rr)) return(NULL)
+  fl <- d$flagged; if (!is.null(fl) && nrow(fl) && NROW(rr)) fl <- fl[!norm_doi(fl$doi) %in% norm_doi(rr$doi), , drop = FALSE]
+  txt <- if (is.null(d) || !is.null(d$error)) character(0) else if (is.null(fl) || !nrow(fl))
+           sprintf("Retraction check of the bibliometric dataset (%s): %d of %d records have a DOI; %s according to OpenAlex.", d$checked_at, d$n_doi, d$n_records, if (NROW(rr)) "no retracted record remains" else "none is retracted")
+         else sprintf("Retraction check of the bibliometric dataset (%s): %d retracted record(s) found among %d records with a DOI and kept in the analyses.", d$checked_at, nrow(fl), d$n_doi)
+  if (NROW(rr)) txt <- c(sprintf("%d retracted record(s) were excluded from the bibliometric analyses (%s) and are counted in the PRISMA flow.", nrow(rr), rr$removed_at[1]), txt)
+  tab <- rbind(if (NROW(rr)) data.frame(Record = rr$record, DOI = rr$doi, Notice = rr$notice, Status = "excluded"),
+               if (!is.null(fl) && nrow(fl)) data.frame(Record = fl$record, DOI = fl$doi, Notice = fl$notice, Status = "kept"))
+  list(text = paste(txt, collapse = " "), table = tab)
 }
 lessons_html <- function(id, st) {
   d <- lessons_data(id, st); e <- htmltools::htmlEscape

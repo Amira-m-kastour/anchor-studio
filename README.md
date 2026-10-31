@@ -47,6 +47,11 @@ Fixed in 1.4.5: on Windows the app started but its window never opened when Micr
 log, and a "ANCHOR Studio - troubleshoot" Start-menu entry runs the app with all its messages visible. The installer closes a
 running copy before replacing it.
 
+New in 1.5.3: after "Check records for retractions" (Bibliometrics > Data), the button **Exclude the retracted records**
+removes them from every analysis; the filters cannot bring them back. They appear as "Retracted records removed (retraction check)"
+in the PRISMA flow, the decision is logged with their DOIs, and the reports list them as excluded. A new import starts afresh.
+Fixed in 1.5.3: vector PDF figures on a Mac without XQuartz (the standard PDF device is used when cairo cannot load).
+
 New in 1.5.2: the app speaks **German and Arabic** as well as English. Choose the language from "Language" (globe) in the top bar;
 Arabic is shown right to left, and the choice is remembered. Names of people stay in Latin script, and reports, figures and tables
 stay in English. Under Settings, "Language of AI drafts" asks the model to write its drafts in English, German or Arabic (by default
@@ -122,7 +127,7 @@ Never commit article PDFs to this repository; `*.pdf` is ignored on purpose.
 compiles the `ANCHOR Studio.exe` launcher with mingw-w64, and packs a 64-bit NSIS installer plus a portable zip
 into `dist-win/`. It needs `curl`, `zip`, `mingw-w64` and `nsis` (Ubuntu: `apt install mingw-w64 nsis zip`);
 with `TEST=1` and `wine64` + `xvfb` installed it also runs the smoke test on the Windows build.
-`packages-win64.lock.txt` lists the exact package versions of release 1.5.2.
+`packages-win64.lock.txt` lists the exact package versions of release 1.5.3.
 Set `TYPST_VERSION` to change the bundled Typst version (default 0.15.1) in the GitHub builds.
 
 ## Run from source (any system with R)
@@ -134,7 +139,7 @@ shiny::runApp("app")
 
 ## Cite
 
-Kastour, A. M. (2026). *ANCHOR Studio* (Version 1.5.2) [Computer software].
+Kastour, A. M. (2026). *ANCHOR Studio* (Version 1.5.3) [Computer software].
 Aria, M., & Cuccurullo, C. (2017). bibliometrix: An R-tool for comprehensive science mapping analysis. *Journal of Informetrics, 11*(4), 959–975. https://doi.org/10.1016/j.joi.2017.08.007
 
 ## Dedication

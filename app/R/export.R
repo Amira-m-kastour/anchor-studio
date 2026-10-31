@@ -95,11 +95,7 @@ build_content_tex <- function(st, fig_names) {
     if (p$id == "N" && !is.null(f <- ds_findings(st))) L <- c(L, paste0("\\textbf{", tex_esc(f$text), "}\n"), if (!is.null(f$table)) tex_table(f$table, 200, "\\footnotesize"))
     L <- c(L, lessons_tex(p$id, st))
     if (p$id == "N" && !is.null(st$prisma)) { pr <- st$prisma
-      L <- c(L, "\\subsection*{PRISMA 2020 flow}", tex_table(data.frame(Stage = c("Records identified from databases", "Duplicates removed",
-        "Removed by filters (year, type, language)", "Records screened (title/abstract)", "Excluded at screening", "Reports assessed for eligibility",
-        "Reports excluded (with reasons)", "Studies included in the review"),
-        n = vapply(list(pr$identified, pr$duplicates, pr$filtered, pr$screened, pr$excluded_screen, pr$assessed, pr$excluded_full, pr$included),
-                   function(v) as.character(v %|e|% "pending"), ""))))
+      L <- c(L, "\\subsection*{PRISMA 2020 flow}", tex_table(prisma_rows(pr)))
     }
     if (p$id == "O" && !is.null(pv <- provenance_df(st$analysis$datasets))) L <- c(L, "\\subsection*{Data and provenance}", tex_table(pv[, c("Dataset", "Source", "Query", "Retrieved", "Rows", "Licensed")], 100, "\\footnotesize"))
     if (p$id == "A" && !is.null(fr <- find_report(st))) L <- c(L, "\\subsection*{How the focal article was chosen}", tex_esc(fr$text), "", tex_table(fr$table, 10, "\\footnotesize"), tex_esc(fr$note), "")
@@ -350,11 +346,7 @@ build_report_typ <- function(st, figs) {
     if (p$id == "N" && !is.null(f <- ds_findings(st))) L <- c(L, sprintf("*%s*\n\n", typ_txt(f$text)), if (!is.null(f$table)) typ_table(f$table, 200))
     L <- c(L, lessons_typ(p$id, st))
     if (p$id == "N" && !is.null(st$prisma)) { pr <- st$prisma
-      L <- c(L, "#heading(level: 3)[PRISMA 2020 flow]\n\n", typ_table(data.frame(Stage = c("Records identified from databases", "Duplicates removed",
-        "Removed by filters (year, type, language)", "Records screened (title/abstract)", "Excluded at screening", "Reports assessed for eligibility",
-        "Reports excluded (with reasons)", "Studies included in the review"),
-        n = vapply(list(pr$identified, pr$duplicates, pr$filtered, pr$screened, pr$excluded_screen, pr$assessed, pr$excluded_full, pr$included),
-                   function(v) as.character(v %|e|% "pending"), "")))) }
+      L <- c(L, "#heading(level: 3)[PRISMA 2020 flow]\n\n", typ_table(prisma_rows(pr))) }
     if (p$id == "O" && !is.null(pv <- provenance_df(st$analysis$datasets))) L <- c(L, "#heading(level: 3)[Data and provenance]\n\n", typ_table(pv[, c("Dataset", "Source", "Query", "Retrieved", "Rows", "Licensed")], 100))
     if (p$id == "A" && !is.null(fr <- find_report(st))) L <- c(L, "#heading(level: 3)[How the focal article was chosen]\n\n", sprintf("%s\n\n", typ_txt(fr$text)), typ_table(fr$table, 10), sprintf("%s\n\n", typ_txt(fr$note)))
     if (p$id == "A" && !is.null(f <- st$focal_oa)) L <- c(L, "#heading(level: 3)[Focal article in OpenAlex]\n\n", sprintf("%s\n\n", typ_txt(sprintf("%d references, cited by %s works (checked %s). %s", f$n_refs %||% 0L, f$n_citing %||% "?", f$retrieved %||% "",

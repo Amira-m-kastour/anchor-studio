@@ -445,12 +445,34 @@ server <- function(input, output, session) {
   observeEvent(input$ds_check, { if (isFALSE(input$online)) return(showNotification("Switch on the internet features in Settings first.", type = "warning")); start_ds() })
   output$ds_status <- renderUI({
     if (!is.null(ds_job())) return(div(class = "alert alert-info small", icon("spinner", class = "fa-spin"), " Checking the records for retractions online..."))
-    d <- st$online_ds; if (is.null(d)) return(NULL)
+    d <- st$online_ds; rr <- st$biblio$retracted_removed
+    gone <- if (NROW(rr)) div(class = "alert alert-warning small", icon("ban"), tags$b(sprintf(" %d retracted record(s) excluded from the analyses (%s). ", nrow(rr), rr$removed_at[1])),
+        "They are counted in the PRISMA flow and listed in the decision log. Figures added to the report before this were made with them: re-run and re-add those figures.",
+        tags$ul(lapply(seq_len(nrow(rr)), function(i) tags$li(sprintf("%s - doi:%s", rr$record[i], rr$doi[i])))))
+    if (is.null(d)) return(gone)
     if (!is.null(d$error)) return(div(class = "alert alert-secondary small", "Retraction check could not run: ", d$error))
     fl <- d$flagged
-    if (is.null(fl) || !nrow(fl)) return(div(class = "alert alert-success small", icon("shield-halved"), sprintf(" Retraction check %s: %d of %d records have a DOI; %d found in OpenAlex; none retracted.", d$checked_at, d$n_doi, d$n_records, d$n_found %||% 0)))
-    div(class = "alert alert-danger small", icon("triangle-exclamation"), tags$b(sprintf(" %d retracted record(s) found (%s). ", nrow(fl), d$checked_at)),
-        "Decide whether to exclude them (filters) and say so in your PRISMA notes.", tags$ul(lapply(seq_len(nrow(fl)), function(i) tags$li(sprintf("%s - %s (doi:%s) - %s", fl$record[i], fl$title[i], fl$doi[i], fl$notice[i]))))) })
+    if (!is.null(fl) && nrow(fl) && NROW(rr)) fl <- fl[!norm_doi(fl$doi) %in% norm_doi(rr$doi), , drop = FALSE]   # already excluded
+    if (is.null(fl) || !nrow(fl)) return(tagList(gone, div(class = "alert alert-success small", icon("shield-halved"), sprintf(if (NROW(rr)) " Retraction check %s: %d of %d records have a DOI; %d found in OpenAlex; no retracted records remain." else " Retraction check %s: %d of %d records have a DOI; %d found in OpenAlex; none retracted.",
+      d$checked_at, d$n_doi, d$n_records, d$n_found %||% 0))))
+    tagList(div(class = "alert alert-danger small", icon("triangle-exclamation"), tags$b(sprintf(" %d retracted record(s) found (%s). ", nrow(fl), d$checked_at)),
+        "Decide whether to exclude them. Excluding removes them from every analysis, counts them in the PRISMA flow and records the decision.",
+        tags$ul(lapply(seq_len(nrow(fl)), function(i) tags$li(sprintf("%s - %s (doi:%s) - %s", fl$record[i], fl$title[i], fl$doi[i], fl$notice[i])))),
+        actionButton("ds_exclude", sprintf("Exclude the %d retracted record(s)", nrow(fl)), icon = icon("ban"), class = "btn-sm btn-danger")), gone) })
+  observeEvent(input$ds_exclude, {
+    d <- st$online_ds; b <- st$biblio; fl <- d$flagged; req(!is.null(fl), nrow(fl), !is.null(b$M_all))
+    dois <- setdiff(norm_doi(fl$doi), norm_doi(b$retracted_removed$doi %||% character(0))); dois <- dois[nzchar(dois)]; req(length(dois))
+    hit_all <- norm_doi(b$M_all$DI %||% rep("", nrow(b$M_all))) %in% dois; hit <- norm_doi(b$M$DI %||% rep("", nrow(b$M))) %in% dois
+    if (!any(hit_all)) return(showNotification("These records are no longer in the dataset.", type = "message"))
+    f <- fl[norm_doi(fl$doi) %in% dois, , drop = FALSE]
+    new <- data.frame(record = as.character(f$record %||% f$doi), doi = norm_doi(f$doi), notice = as.character(f$notice %||% ""), removed_at = format(Sys.time(), "%Y-%m-%d %H:%M"), stringsAsFactors = FALSE)
+    b$retracted_removed <- rbind(b$retracted_removed, new)
+    b$M_all <- b$M_all[!hit_all, , drop = FALSE]; b$M <- b$M[!hit, , drop = FALSE]
+    b$R <- tryCatch(bibliometrix::biblioAnalysis(b$M, sep = ";"), error = function(e) NULL)
+    st$biblio <- b; rv$bib_ver <- rv$bib_ver + 1
+    log_decision("N", sprintf("%d retracted record(s) excluded from the bibliometric dataset", sum(hit_all)), paste0("doi:", new$doi, collapse = "; "))
+    showNotification(sprintf("%d retracted record(s) excluded. Re-run your analyses; figures already added to the report were made before this change.", sum(hit_all)), type = "warning", duration = 15)
+  })
 
   # ---------------- article upload
   load_article <- function(path, name) {
@@ -671,7 +693,7 @@ server <- function(input, output, session) {
     b <- st$biblio
     if (is.null(b$log)) return()
     ident <- sum(b$log$records); filtered <- nrow(b$M_all) - nrow(b$M)
-    st$prisma <- list(identified = ident, duplicates = b$dup, filtered = filtered, screened = nrow(b$M),
+    st$prisma <- list(identified = ident, duplicates = b$dup, retracted = NROW(b$retracted_removed), filtered = filtered, screened = nrow(b$M),
                       excluded_screen = input$pr_excl_screen %|na|% NULL, assessed = input$pr_assessed %|na|% NULL,
                       excluded_full = input$pr_excl_full %|na|% NULL, included = input$pr_included %|na|% NULL)
   })

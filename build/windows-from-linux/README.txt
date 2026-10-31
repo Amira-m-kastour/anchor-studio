@@ -1,4 +1,4 @@
-ANCHOR Studio 1.5.2 for Windows
+ANCHOR Studio 1.5.3 for Windows
 by A. Mamdouh Kastour · A. Mamdouh Kastour’s Scholarly Anchor
 ================================
 

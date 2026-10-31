@@ -1,6 +1,6 @@
 # ANCHOR Studio - report, disclosure and project files
 
-APP_VERSION <- "1.5.2"
+APP_VERSION <- "1.5.3"
 # endorsement branding: the product keeps its name; the author's brand rides with it
 APP_NAME <- "ANCHOR Studio"
 APP_BYLINE <- "by A. Mamdouh Kastour"
@@ -130,13 +130,21 @@ build_report_html <- function(st) {
   paste(parts, collapse = "\n")
 }
 
+# the PRISMA 2020 stages as one table (HTML, LaTeX and PDF reports use the same rows); the retracted-records row
+# appears only when retracted records were excluded
+prisma_rows <- function(pr) {
+  v <- function(x) { x <- x %||% NULL; if (is.null(x) || (length(x) == 1 && is.na(x))) "pending" else as.character(x) }
+  st <- c("Records identified from databases", "Duplicates removed", if (isTRUE((pr$retracted %||% 0) > 0)) "Retracted records removed (retraction check)",
+          "Records removed by filters (year, type, language)", "Records screened (title/abstract)", "Records excluded at screening",
+          "Reports assessed for eligibility", "Reports excluded (with reasons)", "Studies included in the review")
+  n <- c(v(pr$identified), v(pr$duplicates), if (isTRUE((pr$retracted %||% 0) > 0)) v(pr$retracted), v(pr$filtered), v(pr$screened),
+         v(pr$excluded_screen), v(pr$assessed), v(pr$excluded_full), v(pr$included))
+  data.frame(Stage = st, n = n, stringsAsFactors = FALSE)
+}
 prisma_html <- function(pr) {
   box <- function(t, n) sprintf("<div style='border:1px solid #14213D;border-radius:6px;padding:8px 10px;margin:6px 0'><b>%s</b><br>n = %s</div>", t, n)
-  paste0("<h3>PRISMA 2020 flow</h3><div style='max-width:560px'>",
-    box("Records identified from databases", pr$identified), box("Duplicates removed", pr$duplicates),
-    box("Records removed by filters (year, type, language)", pr$filtered), box("Records screened (title/abstract)", pr$screened),
-    box("Records excluded at screening", pr$excluded_screen %||% "pending"), box("Reports assessed for eligibility", pr$assessed %||% "pending"),
-    box("Reports excluded (with reasons)", pr$excluded_full %||% "pending"), box("Studies included in the review", pr$included %||% "pending"), "</div>")
+  r <- prisma_rows(pr)
+  paste0("<h3>PRISMA 2020 flow</h3><div style='max-width:560px'>", paste(mapply(box, r$Stage, r$n), collapse = ""), "</div>")
 }
 
 build_report_docx <- function(st, path) {
