@@ -1,7 +1,15 @@
 # ANCHOR Studio - PDF figures, LaTeX package, BibTeX and PDF report (version 1.1)
 
 # ------------------------------------------------------------------ figures as vector PDF
-pdf_device <- function() if (isTRUE(capabilities("cairo"))) grDevices::cairo_pdf else grDevices::pdf
+# cairo_pdf draws non-Latin text best, but on a Mac without XQuartz R reports cairo as available while its library
+# cannot load (it needs /opt/X11). So cairo is tried once with a tiny test file; if that fails, the standard pdf device is used.
+.anchor_cairo_ok <- local({ ok <- NULL; function() {
+  if (is.null(ok)) ok <<- isTRUE(capabilities("cairo")) && isTRUE(tryCatch({
+    f <- tempfile(fileext = ".pdf"); on.exit(unlink(f))
+    suppressWarnings({ grDevices::cairo_pdf(f, width = 2, height = 2); graphics::plot.new(); grDevices::dev.off() })
+    file.exists(f) && file.size(f) > 500 }, error = function(e) FALSE))
+  ok } })
+pdf_device <- function() if (.anchor_cairo_ok()) grDevices::cairo_pdf else grDevices::pdf
 
 save_pdf_fig <- function(r, file) {
   if (r$kind == "gg") return(invisible(ggplot2::ggsave(file, r$plot, width = 10, height = 6.2, bg = "white", device = pdf_device())))
