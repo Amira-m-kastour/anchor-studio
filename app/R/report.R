@@ -1,6 +1,6 @@
 # ANCHOR Studio - report, disclosure and project files
 
-APP_VERSION <- "1.5.3"
+APP_VERSION <- "1.6.0"
 # endorsement branding: the product keeps its name; the author's brand rides with it
 APP_NAME <- "ANCHOR Studio"
 APP_BYLINE <- "by A. Mamdouh Kastour"

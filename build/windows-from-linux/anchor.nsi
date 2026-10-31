@@ -1,10 +1,10 @@
-; ANCHOR Studio 1.5.3 - Windows installer (NSIS). Installs for the current user, no administrator rights.
+; ANCHOR Studio 1.6.0 - Windows installer (NSIS). Installs for the current user, no administrator rights.
 Unicode true
 Target amd64-unicode
 !include "MUI2.nsh"
 
 !define APPNAME "ANCHOR Studio"
-!define VERSION "1.5.3"
+!define VERSION "1.6.0"
 !define PUBLISHER "Amira Mamdouh Kastour"
 !define SRC "..\..\dist-win\ANCHOR Studio"
 !define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\ANCHORStudio"
@@ -17,7 +17,7 @@ RequestExecutionLevel user
 SetCompressor /SOLID lzma
 SetCompressorDictSize 64
 BrandingText "${APPNAME} ${VERSION} by A. Mamdouh Kastour"
-VIProductVersion "1.5.3.0"
+VIProductVersion "1.6.0.0"
 VIAddVersionKey "ProductName" "${APPNAME}"
 VIAddVersionKey "FileDescription" "${APPNAME} installer - by A. Mamdouh Kastour"
 VIAddVersionKey "FileVersion" "${VERSION}"

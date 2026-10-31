@@ -41,6 +41,8 @@ new_state <- function() {
                                                       my_lessons = "", my_wiifm = "", accepted = list())), PHASE_IDS),
     decisions = data.frame(time = character(), phase = character(), decision = character(), note = character(), stringsAsFactors = FALSE),
     prompts = data.frame(time = character(), phase = character(), mode = character(), prompt = character(), stringsAsFactors = FALSE),
+    # every version of every phase draft: who or what wrote it, and when (restorable; never shared beyond the project file)
+    draft_versions = data.frame(phase = character(), time = character(), source = character(), text = character(), stringsAsFactors = FALSE),
     biblio = list(M = NULL, M_all = NULL, R = NULL, log = NULL, dup = 0, source = ""),
     prisma = NULL, report_items = list(),
     online = NULL, online_ds = NULL,
@@ -77,7 +79,8 @@ phase_shell <- function(p, extra = NULL) {
                            actionButton(paste0(id, "_prompt_btn"), "Show prompt", icon = icon("clipboard"), class = "btn-outline-secondary btn-sm"))),
            uiOutput(paste0(id, "_modeinfo")),
            textAreaInput(paste0(id, "_draft"), NULL, rows = 22, width = "100%",
-                         placeholder = "The draft appears here. Edit it freely: this text is what goes into your report. In copy-and-paste mode, paste Claude's answer here.")),
+                         placeholder = "The draft appears here. Edit it freely: this text is what goes into your report. In copy-and-paste mode, paste Claude's answer here."),
+           uiOutput(paste0(id, "_versions"))),
       extra,
       lessons_card(id)
     ),
@@ -181,6 +184,7 @@ ui <- page_navbar(
     tags$link(rel = "stylesheet", href = "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=Source+Serif+4:wght@600&display=swap"),
     tags$link(rel = "stylesheet", href = "styles.css"),
     tags$script(src = "lang_de.js"), tags$script(src = "lang_ar.js"), tags$script(src = "i18n.js"),
+    tags$script(HTML("$(document).on('shiny:connected', function () { Shiny.addCustomMessageHandler('anchor-ro', function (m) { var el = document.getElementById(m.id); if (el) { el.readOnly = !!m.ro; el.classList.toggle('anchor-ro', !!m.ro); } }); });")),
     tags$script(HTML("function anchorCopy(id){var t=document.getElementById(id);t.select();navigator.clipboard.writeText(t.value).then(()=>{},()=>document.execCommand('copy'));}"))),
   nav_panel("Before you start", value = "prereq", icon = icon("list-check"), prereq_ui()),
   nav_panel("Find a focal article", value = "find", icon = icon("magnifying-glass"), find_ui()),
@@ -469,8 +473,9 @@ server <- function(input, output, session) {
     b$retracted_removed <- rbind(b$retracted_removed, new)
     b$M_all <- b$M_all[!hit_all, , drop = FALSE]; b$M <- b$M[!hit, , drop = FALSE]
     b$R <- tryCatch(bibliometrix::biblioAnalysis(b$M, sep = ";"), error = function(e) NULL)
-    st$biblio <- b; rv$bib_ver <- rv$bib_ver + 1
+    b[c("stamp", "desc")] <- data_stamp(b); st$biblio <- b; rv$bib_ver <- rv$bib_ver + 1
     log_decision("N", sprintf("%d retracted record(s) excluded from the bibliometric dataset", sum(hit_all)), paste0("doi:", new$doi, collapse = "; "))
+    data_changed(sprintf("%d retracted record(s) excluded", sum(hit_all)))
     showNotification(sprintf("%d retracted record(s) excluded. Re-run your analyses; figures already added to the report were made before this change.", sum(hit_all)), type = "warning", duration = 15)
   })
 
@@ -478,6 +483,14 @@ server <- function(input, output, session) {
   load_article <- function(path, name) {
     info <- tryCatch(read_article(path, name), error = function(e) { showNotification(conditionMessage(e), type = "error"); NULL })
     if (is.null(info)) return(invisible(NULL))
+    old <- isolate(st$article$text)
+    if (!is.null(old) && nzchar(old) && !identical(old, info$text)) {   # the anchor itself changed: everything approved rests on the old one
+      phs <- isolate(st$phases); flagged <- character(0)
+      for (j in PHASE_IDS) if (identical(phs[[j]]$status, "approved")) { phs[[j]]$status <- "needs review"; flagged <- c(flagged, j) }
+      st$phases <- phs
+      log_decision("Start", "Anchor article replaced", paste0("New file: ", name, if (length(flagged)) paste0("; phases marked 'needs review': ", paste(flagged, collapse = ", ")) else ""))
+      if (length(flagged)) showNotification(paste("The article changed. Phases", paste(flagged, collapse = ", "), "need review."), type = "warning", duration = 15)
+    }
     st$article <- modifyList(isolate(st$article), info)
     updateTextInput(session, "art_title", value = info$title_guess)
     updateTextInput(session, "art_doi", value = info$doi)
@@ -543,6 +556,31 @@ server <- function(input, output, session) {
     a
   }
 
+  # ---------------- versions of the drafts and reopening (shared by every phase)
+  last_version <- function(id) { v <- isolate(st$draft_versions); v <- v[v$phase == id, , drop = FALSE]; if (nrow(v)) v$text[nrow(v)] else NULL }
+  snap <- function(id, source, text = NULL, force = FALSE) {
+    text <- text %||% isolate(st$phases[[id]]$draft) %||% ""
+    v <- isolate(st$draft_versions); v <- v[v$phase == id, , drop = FALSE]; last_src <- if (nrow(v)) v$source[nrow(v)] else ""
+    # an approval is recorded even when the text is unchanged
+    if (!nzchar(trimws(text)) || (identical(text, last_version(id)) && (!force || identical(last_src, source)))) return(invisible(FALSE))
+    st$draft_versions <- rbind(isolate(st$draft_versions), data.frame(phase = id, time = format(Sys.time(), "%Y-%m-%d %H:%M:%S"), source = source, text = text, stringsAsFactors = FALSE))
+    invisible(TRUE)
+  }
+  reopen_phase <- function(id, why) {
+    phs <- isolate(st$phases); if (!phs[[id]]$status %in% c("approved", "needs review")) return(invisible(FALSE))
+    phs[[id]]$status <- "open"
+    later <- PHASE_IDS[seq_along(PHASE_IDS) > match(id, PHASE_IDS)]
+    flagged <- character(0); for (j in later) if (phs[[j]]$status == "approved") { phs[[j]]$status <- "needs review"; flagged <- c(flagged, j) }
+    st$phases <- phs
+    log_decision(id, why, if (length(flagged)) paste0("Later approved phases marked 'needs review': ", paste(flagged, collapse = ", ")) else "")
+    invisible(TRUE)
+  }
+  ask_edit_approved <- function(id) showModal(modalDialog(title = paste0("Edit approved phase ", id, "?"),
+    p("Editing reopens this phase. Later approved phases are marked 'needs review', and the change is logged. The approved text stays in the versions list."),
+    footer = tagList(modalButton("Keep it approved"), actionButton(paste0(id, "_edit_go"), "Reopen and edit", class = "btn-warning"))))
+  typed <- new.env()   # phases whose draft you typed in since the last version
+  observe({ invalidateLater(60000); for (id in PHASE_IDS) if (isTRUE(typed[[id]])) { snap(id, "your edits"); typed[[id]] <- FALSE } })   # your typing, kept once a minute
+
   lapply(PHASES, function(p) {
     id <- p$id
     is_locked <- reactive({ i <- match(id, PHASE_IDS); !isTRUE(st$setup_ok) || (i > 1 && st$phases[[PHASE_IDS[i - 1]]]$status != "approved") })
@@ -550,8 +588,10 @@ server <- function(input, output, session) {
       s <- st$phases[[id]]$status
       if (is_locked()) return(div(class = "alert alert-secondary", icon("lock"), if (!isTRUE(st$setup_ok)) " Confirm the set-up on the Start page first." else
         paste0(" Phase ", PHASE_IDS[match(id, PHASE_IDS) - 1], " must be approved before this phase opens.")))
-      switch(s, approved = div(class = "alert alert-success", icon("circle-check"), paste(" Approved", st$phases[[id]]$approved_at %||% ""), ". Reopen it to make changes."),
-             `needs review` = div(class = "alert alert-warning", icon("triangle-exclamation"), " An earlier phase was changed after this one was approved. Review and approve again."),
+      switch(s, approved = div(class = "alert alert-success d-flex justify-content-between align-items-center flex-wrap gap-2",
+                 span(icon("circle-check"), sprintf(" Approved %s. The draft is locked.", st$phases[[id]]$approved_at %||% "")),
+                 actionButton(paste0(id, "_edit_approved"), "Edit this approved phase", icon = icon("pen"), class = "btn-sm btn-outline-success")),
+             `needs review` = div(class = "alert alert-warning", icon("triangle-exclamation"), " Something this phase rests on changed after it was approved (an earlier phase, the data or the article). Review it and approve again."),
              div(class = "alert alert-info small mb-2", icon("circle-info"), " Answer the questions on the right, produce the draft, tick the checks, then decide at the gate."))
     })
     output[[paste0(id, "_modeinfo")]] <- renderUI({
@@ -565,10 +605,36 @@ server <- function(input, output, session) {
     # keep state in sync with inputs
     # copy-and-paste mode: a shown prompt counts as AI use only once an answer is pasted into the draft box
     pending_prompt <- reactiveVal(NULL)
-    observeEvent(input[[paste0(id, "_draft")]], { ph <- st$phases; ph[[id]]$draft <- input[[paste0(id, "_draft")]]
+    observeEvent(input[[paste0(id, "_draft")]], { if (identical(input[[paste0(id, "_draft")]], isolate(st$phases[[id]]$draft))) return()
+      if (identical(isolate(st$phases[[id]]$status), "approved")) {   # locked: put the approved text back
+        updateTextAreaInput(session, paste0(id, "_draft"), value = isolate(st$phases[[id]]$draft)); return(ask_edit_approved(id)) }
+      typed[[id]] <- TRUE
+      ph <- st$phases; ph[[id]]$draft <- input[[paste0(id, "_draft")]]
       ph[[id]]$ai_q <- extract_ai_questions(ph[[id]]$draft); st$phases <- ph
       pp <- pending_prompt()
-      if (!is.null(pp) && nchar(trimws(ph[[id]]$draft)) >= 50) { log_prompt(id, pp, mode = "prompt"); pending_prompt(NULL) } }, ignoreInit = TRUE)
+      if (!is.null(pp) && nchar(trimws(ph[[id]]$draft)) >= 50) { log_prompt(id, pp, mode = "prompt"); pending_prompt(NULL); snap(id, "AI answer pasted (copy-and-paste)") } }, ignoreInit = TRUE)
+    observe({ s <- st$phases[[id]]$status; session$sendCustomMessage("anchor-ro", list(id = paste0(id, "_draft"), ro = identical(s, "approved"))) })
+    observeEvent(input[[paste0(id, "_edit_approved")]], ask_edit_approved(id))
+    observeEvent(input[[paste0(id, "_edit_go")]], { removeModal(); snap(id, "approved version", force = TRUE); reopen_phase(id, "Reopened to edit the approved text")
+      showNotification(paste("Phase", id, "is open for editing. Approve it again when you are done."), type = "message") })
+    output[[paste0(id, "_versions")]] <- renderUI({
+      v <- st$draft_versions; v <- v[v$phase == id, , drop = FALSE]; if (!nrow(v)) return(NULL)
+      words <- function(x) length(strsplit(trimws(x), "\\s+")[[1]])
+      vlink <- function(k, a, label) tags$a(href = "#", onclick = sprintf("Shiny.setInputValue('%s_vact', {k: %d, a: '%s'}, {priority: 'event'}); return false;", id, k, a), label)
+      tags$details(class = "mt-2 small", tags$summary(icon("clock-rotate-left"), sprintf(" Versions of this draft (%d)", nrow(v))),
+        tags$table(class = "table table-sm mb-0", tags$tbody(lapply(rev(seq_len(nrow(v))), function(k) tags$tr(
+          tags$td(v$time[k]), tags$td(v$source[k]), tags$td(sprintf("%d words", words(v$text[k]))),
+          tags$td(class = "text-end", vlink(k, "show", "show"), " \u00b7 ", vlink(k, "restore", "restore")))))))
+    })
+    observeEvent(input[[paste0(id, "_vact")]], { act <- input[[paste0(id, "_vact")]]; k <- as.integer(act$k); vv <- isolate(st$draft_versions)
+      if (is.na(k) || k < 1 || k > nrow(vv) || vv$phase[k] != id) return(); v <- vv[k, ]
+      if (identical(act$a, "show")) return(showModal(modalDialog(title = paste(v$time, "-", v$source), tags$pre(class = "no-i18n", style = "white-space:pre-wrap;max-height:60vh", v$text), easyClose = TRUE, size = "l")))
+      if (identical(isolate(st$phases[[id]]$status), "approved")) return(ask_edit_approved(id))
+      snap(id, "your text before a restore")
+      ph <- st$phases; ph[[id]]$draft <- v$text; ph[[id]]$ai_q <- extract_ai_questions(v$text); st$phases <- ph
+      updateTextAreaInput(session, paste0(id, "_draft"), value = v$text); snap(id, paste("restored version of", v$time), v$text)
+      log_decision(id, "Earlier version restored", paste(v$time, "-", v$source))
+      showNotification(paste("Version of", v$time, "restored."), type = "message") })
     observeEvent(input[[paste0(id, "_mylessons")]], { ph <- st$phases; ph[[id]]$my_lessons <- input[[paste0(id, "_mylessons")]]; st$phases <- ph }, ignoreInit = TRUE)
     observeEvent(input[[paste0(id, "_mywiifm")]], { ph <- st$phases; ph[[id]]$my_wiifm <- input[[paste0(id, "_mywiifm")]]; st$phases <- ph }, ignoreInit = TRUE)
     output[[paste0(id, "_live_pill")]] <- renderUI(online_pill(st$online, online_job()))
@@ -629,10 +695,13 @@ server <- function(input, output, session) {
       log_prompt(id, pr)
       out <- withProgress(message = paste("Drafting phase", id, "..."), value = .3,
                           tryCatch(ai_draft(m, pr, isolate(st$settings)), error = function(e) { showNotification(conditionMessage(e), type = "error", duration = 15); NULL }))
-      if (!is.null(out)) { updateTextAreaInput(session, paste0(id, "_draft"), value = out)
+      if (!is.null(out)) { snap(id, "your text before a new AI draft")
+        snap(id, sprintf("%s (%s)", if (is.null(revision)) "AI draft" else "AI revision", if (m == "api") isolate(input$api_model) else paste("Ollama", isolate(input$ollama_model))), out)
+        updateTextAreaInput(session, paste0(id, "_draft"), value = out)
         showNotification("Draft ready. Read it, edit it, answer any questions it raises, then decide at the gate.", type = "message", duration = 8) }
     }
     observeEvent(input[[paste0(id, "_draft_btn")]], {
+      if (identical(isolate(st$phases[[id]]$status), "approved")) return(ask_edit_approved(id))
       if (nzchar(isolate(st$phases[[id]]$draft)) && input$mode %in% c("api", "ollama"))
         showModal(modalDialog(title = "Replace the current draft?", "The draft box already has text. A new draft will replace it.",
                               footer = tagList(modalButton("Keep my text"), actionButton(paste0(id, "_draft_go"), "Replace with a new draft", class = "btn-warning"))))
@@ -656,6 +725,7 @@ server <- function(input, output, session) {
     })
     observeEvent(input[[paste0(id, "_approve_go")]], {
       removeModal()
+      snap(id, "approved version", force = TRUE)
       phs <- st$phases; phs[[id]]$status <- "approved"; phs[[id]]$approved_at <- format(Sys.time(), "%Y-%m-%d %H:%M")
       i <- match(id, PHASE_IDS)
       if (i < length(PHASE_IDS) && phs[[PHASE_IDS[i + 1]]]$status == "locked") phs[[PHASE_IDS[i + 1]]]$status <- "open"
@@ -673,18 +743,13 @@ server <- function(input, output, session) {
     })
     observeEvent(input[[paste0(id, "_rev_go")]], {
       note <- input[[paste0(id, "_rev_note")]]; removeModal()
-      phs <- st$phases; if (phs[[id]]$status == "approved") phs[[id]]$status <- "open"; st$phases <- phs
+      if (identical(isolate(st$phases[[id]]$status), "approved")) { snap(id, "approved version", force = TRUE); reopen_phase(id, "Reopened for a revision") }
       log_decision(id, "Revision requested", note)
       run_draft(revision = note)
     })
     observeEvent(input[[paste0(id, "_reopen")]], {
-      phs <- st$phases
-      if (phs[[id]]$status != "approved") return(showNotification("Only approved phases can be reopened.", type = "message"))
-      phs[[id]]$status <- "open"
-      later <- PHASE_IDS[seq_along(PHASE_IDS) > match(id, PHASE_IDS)]
-      for (j in later) if (phs[[j]]$status == "approved") phs[[j]]$status <- "needs review"
-      st$phases <- phs
-      log_decision(id, "Reopened", "Later approved phases marked 'needs review'")
+      if (isolate(st$phases[[id]]$status) != "approved") return(showNotification("Only approved phases can be reopened.", type = "message"))
+      snap(id, "approved version", force = TRUE); reopen_phase(id, "Reopened")
     })
   })
 
@@ -712,10 +777,26 @@ server <- function(input, output, session) {
             if ("LA" %in% names(M)) selectizeInput("f_langs", "Languages", choices = sort(unique(M$LA)), selected = unique(M$LA), multiple = TRUE),
             numericInput("f_tc", "Minimum citations", 0, min = 0))
   })
+  # every change of the analysed records gets a stamp; figures added to the report carry the stamp they were made with
+  data_stamp <- function(b) list(stamp = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
+    desc = sprintf("%s, %d records", c(files = "database exports", openalex = "OpenAlex", refs = "the article's reference list", sample = "sample data")[[b$source %||% "files"]] %||% (b$source %||% "data"), NROW(b$M)))
+  stale_items <- function() { s <- isolate(st$biblio$stamp); its <- isolate(st$report_items)
+    which(vapply(its, function(it) !is.null(it$data_stamp) && !identical(it$data_stamp, s), TRUE)) }
+  # a new import or an exclusion changes what phases C, H and O were approved on (decision 6 of the proposal audit)
+  data_changed <- function(what) {
+    phs <- isolate(st$phases); flagged <- character(0)
+    for (j in c("C", "H", "O")) if (identical(phs[[j]]$status, "approved")) { phs[[j]]$status <- "needs review"; flagged <- c(flagged, j) }
+    if (length(flagged)) { st$phases <- phs; log_decision("N", paste("Data changed:", what), paste0("Phases marked 'needs review': ", paste(flagged, collapse = ", "))) }
+    n <- length(stale_items())
+    if (length(flagged)) showNotification(sprintf("Phases %s need review.", paste(flagged, collapse = ", ")), type = "warning", duration = 15)
+    if (n) showNotification(sprintf("%d figure(s) in the report were made from earlier data: see phase C.", n), type = "warning", duration = 15)
+  }
   set_biblio <- function(M_all, log, dup, source) {
     R <- tryCatch(bibliometrix::biblioAnalysis(M_all, sep = ";"), error = function(e) NULL)
-    st$biblio <- list(M = M_all, M_all = M_all, R = R, log = log, dup = dup, source = source)
+    had <- !is.null(isolate(st$biblio$M))
+    b <- list(M = M_all, M_all = M_all, R = R, log = log, dup = dup, source = source); st$biblio <- c(b, data_stamp(b))
     rv$bib_ver <- rv$bib_ver + 1
+    if (had) data_changed(sprintf("new data imported (%d records)", nrow(M_all)))
   }
   observeEvent(input$bib_import, {
     if (input$bib_source == "openalex") { if (isFALSE(input$online)) return(showNotification("Switch on the internet features in Settings first.", type = "warning"))
@@ -741,8 +822,9 @@ server <- function(input, output, session) {
   observeEvent(input$bib_apply, {
     M <- st$biblio$M_all; req(M)
     M2 <- apply_filters(M, input$f_years, input$f_types, input$f_langs, input$f_tc)
-    b <- st$biblio; b$M <- M2; b$R <- tryCatch(bibliometrix::biblioAnalysis(M2, sep = ";"), error = function(e) NULL); st$biblio <- b
+    b <- st$biblio; b$M <- M2; b$R <- tryCatch(bibliometrix::biblioAnalysis(M2, sep = ";"), error = function(e) NULL); b[c("stamp", "desc")] <- data_stamp(b); st$biblio <- b
     showNotification(sprintf("%d of %d records kept.", nrow(M2), nrow(M)), type = "message")
+    n <- length(stale_items()); if (n) showNotification(sprintf("%d figure(s) in the report were made from earlier data: see phase C.", n), type = "warning", duration = 12)
   })
   output$bib_status <- renderUI({
     b <- st$biblio
@@ -867,7 +949,9 @@ server <- function(input, output, session) {
           if (file.exists(tf)) png_raw <- readBin(tf, "raw", file.info(tf)$size)
           tp <- tempfile(fileext = ".pdf"); try(save_pdf_fig(r, tp), silent = TRUE)
           if (file.exists(tp) && file.size(tp) > 0) pdf_raw <- readBin(tp, "raw", file.info(tp)$size) }
-        item <- list(label = r$label, note = paste(c(r$note, if (r$kind == "plotly") "Interactive figure in the app; table shown."), collapse = " "),
+        b <- isolate(st$biblio)
+        item <- list(label = r$label, note = paste(c(r$note, if (r$kind == "plotly") "Interactive figure in the app; table shown.", if (!is.null(b$desc)) sprintf("Data: %s (%s).", b$desc, substr(b$stamp, 1, 16))), collapse = " "),
+                     data_stamp = b$stamp,
                      table = if (!is.null(r$table)) head(as.data.frame(r$table), 30) else NULL, png_raw = png_raw, pdf_raw = pdf_raw)
         st$report_items <- c(isolate(st$report_items), list(item))
         showNotification(paste(r$label, "added to the report (phase C)."), type = "message")
@@ -878,10 +962,13 @@ server <- function(input, output, session) {
   output$report_items_ui <- renderUI({
     its <- st$report_items
     if (!length(its)) return(p(class = "small text-muted", "None yet. Run analyses under Bibliometrics and press 'Add to report'."))
-    tags$ol(lapply(seq_along(its), function(k) tags$li(its[[k]]$label, if (identical(its[[k]]$phase, "O")) span(class = "text-muted small", " (analysis result, shown in phase O)"), " ", actionLink(paste0("rm_item_", k), "remove", class = "small"))))
+    stale <- vapply(its, function(it) !is.null(it$data_stamp) && !identical(it$data_stamp, st$biblio$stamp), TRUE)
+    tagList(if (any(stale)) div(class = "alert alert-warning small py-2", icon("triangle-exclamation"),
+        sprintf(" %d figure(s) were made from earlier data. Remove them, re-run the analyses and add them again.", sum(stale))),
+    tags$ol(lapply(seq_along(its), function(k) tags$li(its[[k]]$label, if (stale[k]) span(class = "badge bg-warning text-dark ms-1", "earlier data"), if (identical(its[[k]]$phase, "O")) span(class = "text-muted small", " (analysis result, shown in phase O)"), " ", tags$a(href = "#", class = "small", onclick = sprintf("Shiny.setInputValue('rm_item', %d, {priority: 'event'}); return false;", k), "remove")))))
   })
-  observe({ n <- length(st$report_items); lapply(seq_len(n), function(k) observeEvent(input[[paste0("rm_item_", k)]], {
-    its <- isolate(st$report_items); if (k <= length(its)) st$report_items <- its[-k] }, once = TRUE, ignoreInit = TRUE)) })
+  observeEvent(input$rm_item, { k <- as.integer(input$rm_item); its <- isolate(st$report_items)
+    if (!is.na(k) && k >= 1 && k <= length(its)) { log_decision(its[[k]]$phase %||% "C", "Figure removed from the report", its[[k]]$label); st$report_items <- its[-k] } })
   observeEvent(input$goto_biblio, nav_select("nav", "bib_data"))
   observeEvent(input$goto_prereq, nav_select("nav", "prereq"))
   add_report_item <- function(label, plot_fn, table, phase, code = NULL, note = "") {
@@ -1069,7 +1156,7 @@ server <- function(input, output, session) {
   observeEvent(input$save_now, { autosave(); showNotification("Saved.", type = "message") })
 
   restore <- function(s) {
-    for (k in intersect(names(s), names(new_state()))) if (k != "settings") st[[k]] <- s[[k]]
+    ns0 <- new_state(); for (k in setdiff(names(ns0), "settings")) st[[k]] <- if (k %in% names(s)) s[[k]] else ns0[[k]]
     # projects saved by ANCHOR Mobile carry the records but not bibliometrix's summary object: rebuild it here
     if (!is.null(s$biblio$M) && is.null(s$biblio$R)) { b <- st$biblio; b$R <- tryCatch(bibliometrix::biblioAnalysis(s$biblio$M, sep = ";"), error = function(e) NULL); st$biblio <- b }
     a <- s$article

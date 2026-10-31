@@ -28,7 +28,8 @@ read_article <- function(path, name) {
 }
 
 detect_doi <- function(txt) {
-  txt <- gsub("\\x{2010}|\\x{2011}|\\x{2012}|\\x{2013}|\\x{2212}", "-", txt, perl = TRUE)  # PDF dashes inside DOIs
+  # PDF dashes inside DOIs; (*UTF) keeps this working when R does not run in a UTF-8 locale
+  txt <- tryCatch(gsub("(*UTF)\\x{2010}|\\x{2011}|\\x{2012}|\\x{2013}|\\x{2212}", "-", enc2utf8(txt), perl = TRUE), error = function(e) txt)
   m <- regmatches(txt, regexpr("10\\.\\d{4,9}/[-._;()/:A-Za-z0-9]+", txt))
   if (length(m)) sub("[.,;)]+$", "", m[1]) else ""
 }

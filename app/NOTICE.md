@@ -86,3 +86,8 @@ Interface languages: the German and Arabic texts were translated for ANCHOR Stud
 released under the GPL-3 with the rest of the app. Country names in the region lists come from the browser's own
 internationalisation data (Unicode CLDR, Unicode licence). The interface translates only what the app displays; your texts,
 drafts, data, figures and reports are never changed.
+
+## Added in 1.6.0
+
+Draft versions are kept inside the project file, like the drafts themselves; they are never put in reports or shared packages
+other than the project file. The prompt log is unchanged by any correction.
