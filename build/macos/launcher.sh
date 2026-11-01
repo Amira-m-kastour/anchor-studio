@@ -30,8 +30,9 @@ make_home() {  # $1 = real R home (.../Versions/<v>/Resources); sets RH and RS
   RH="$home"; RS="$home/bin/R"
 }
 
-# minor version (e.g. 4.6) of the R that a start script really runs
-minor_of() { "$1" --no-echo --no-save --no-restore -e 'cat(R.version$major, ".", sub("\\..*", "", R.version$minor), sep = "")' 2>>"$LOG"; }
+# minor version (e.g. 4.6) of the R that a start script really runs (no spaces or backslashes in the
+# expression: bin/R passes its arguments on unquoted)
+minor_of() { "$1" --no-echo --no-save --no-restore -e 'cat(as.character(getRversion()))' 2>>"$LOG" | cut -d. -f1,2; }
 
 find_r() {
   RS=""; RH=""
@@ -72,7 +73,9 @@ fi
 
 echo "=== $(date) · R at $RH ===" >>"$LOG"
 unset R_HOME RHOME
-"$RS" --no-echo --no-save --no-restore --file="$RES/app/launch.R" --args --lib "$RES/library" >>"$LOG" 2>&1
+# from inside the app folder, so the file name has no spaces (bin/R splits its arguments at spaces)
+cd "$RES/app" || exit 1
+"$RS" --no-echo --no-save --no-restore --file=launch.R --args --lib "$RES/library" >>"$LOG" 2>&1
 STATUS=$?
 if [ $STATUS -ne 0 ]; then alert "ANCHOR Studio stopped with an error. Details are in $LOG"; fi
 exit $STATUS
