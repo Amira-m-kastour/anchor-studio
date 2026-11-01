@@ -63,11 +63,15 @@ jobs:
           {
           OLD=$([ "${{ matrix.arch }}" = arm64 ] && echo big-sur-arm64/base/R-4.4.3-arm64.pkg || echo big-sur-x86_64/base/R-4.4.3-x86_64.pkg)
           curl -fsSL --retry 3 -o /tmp/old.pkg "https://cloud.r-project.org/bin/macosx/$OLD" && sudo installer -pkg /tmp/old.pkg -target / >/dev/null
-          FW=/Library/Frameworks/R.framework; ls -l $FW/Versions/
+          FW=/Library/Frameworks/R.framework
           BEFORE=$(readlink $FW/Versions/Current); echo "default R before: $BEFORE"
-          for d in $FW/Versions/*/Resources/lib/libR.dylib; do otool -D "$d" | tail -1; done
           MNT=$(hdiutil attach dist/*.dmg -nobrowse | tail -1 | awk -F'\t' '{print $NF}')
           cp -R "$MNT/ANCHOR Studio.app" /Applications/ && hdiutil detach "$MNT" >/dev/null
+          # as on a user's Mac: the older R was there first, then the app installs its R next to it and puts the default back
+          # (installing the older R after the newer one can empty the newer version's folder, so it is reinstalled here)
+          sudo installer -pkg "/Applications/ANCHOR Studio.app/Contents/Resources/R.pkg" -target / >/dev/null && (cd $FW/Versions && sudo ln -sfn "$BEFORE" Current)
+          ls -l $FW/Versions/
+          for d in $FW/Versions/*/Resources/lib/libR.dylib; do otool -D "$d" | tail -1; done
           export ANCHOR_NO_BROWSER=1 ANCHOR_READY_FILE=/tmp/anchor_ready
           "/Applications/ANCHOR Studio.app/Contents/MacOS/ANCHOR Studio" & PID=$!
           for i in $(seq 1 150); do [ -s /tmp/anchor_ready ] && break; sleep 2; done
