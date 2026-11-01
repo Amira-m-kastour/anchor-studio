@@ -56,6 +56,35 @@ jobs:
           # the last lines of the log as an annotation, readable on the run page and through the API
           if [ $rc -ne 0 ]; then echo "::error title=macOS build failed::$(tail -n 60 build.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"; fi
           exit $rc
+      - name: Start test on a Mac whose default R is an older version
+        shell: bash
+        run: |
+          set +e
+          {
+          OLD=$([ "${{ matrix.arch }}" = arm64 ] && echo big-sur-arm64/base/R-4.4.3-arm64.pkg || echo big-sur-x86_64/base/R-4.4.3-x86_64.pkg)
+          curl -fsSL --retry 3 -o /tmp/old.pkg "https://cloud.r-project.org/bin/macosx/$OLD" && sudo installer -pkg /tmp/old.pkg -target / >/dev/null
+          FW=/Library/Frameworks/R.framework; ls -l $FW/Versions/
+          BEFORE=$(readlink $FW/Versions/Current); echo "default R before: $BEFORE"
+          for d in $FW/Versions/*/Resources/lib/libR.dylib; do otool -D "$d" | tail -1; done
+          MNT=$(hdiutil attach dist/*.dmg -nobrowse | tail -1 | awk -F'\t' '{print $NF}')
+          cp -R "$MNT/ANCHOR Studio.app" /Applications/ && hdiutil detach "$MNT" >/dev/null
+          export ANCHOR_NO_BROWSER=1 ANCHOR_READY_FILE=/tmp/anchor_ready
+          "/Applications/ANCHOR Studio.app/Contents/MacOS/ANCHOR Studio" & PID=$!
+          for i in $(seq 1 150); do [ -s /tmp/anchor_ready ] && break; sleep 2; done
+          LOG="$HOME/Library/Logs/ANCHOR Studio.log"; echo "--- app log"; cat "$LOG"; echo "--- end"
+          OK=1
+          URL=$(cat /tmp/anchor_ready 2>/dev/null); [ -n "$URL" ] && curl -fsS "$URL" >/dev/null && echo "PASS app answered at $URL" || { echo "FAIL app did not start"; OK=0; }
+          grep -q "(R $(cat "/Applications/ANCHOR Studio.app/Contents/Resources/r-version.txt" | cut -d. -f1,2)" "$LOG" && echo "PASS app runs the bundled R version" || { echo "FAIL wrong R version"; OK=0; }
+          RSP=$(ls -d "$HOME"/Library/Caches/ANCHOR-Studio/R-*/bin/Rscript | head -1)
+          CH=$("$RSP" -e '.libPaths(c("/Applications/ANCHOR Studio.app/Contents/Resources/library", .libPaths())); cat(callr::r(function() as.character(getRversion())))' 2>&1 | tail -1)
+          echo "child R process: $CH"; case "$CH" in "$(cut -d. -f1,2 "/Applications/ANCHOR Studio.app/Contents/Resources/r-version.txt")"*) echo "PASS child R process uses the same version" ;; *) echo "FAIL child R process"; OK=0 ;; esac
+          AFTER=$(readlink $FW/Versions/Current); [ "$AFTER" = "$BEFORE" ] && echo "PASS default R unchanged ($AFTER)" || { echo "FAIL default R changed to $AFTER"; OK=0; }
+          kill $PID 2>/dev/null; pkill -f launch.R 2>/dev/null
+          [ $OK = 1 ]
+          } > starttest.log 2>&1
+          rc=$?; cat starttest.log
+          if [ $rc -ne 0 ]; then echo "::error title=macOS start test failed::$(tail -n 60 starttest.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"; fi
+          exit $rc
       - uses: actions/upload-artifact@v4
         with:
           name: ANCHOR-Studio-macOS-${{ matrix.arch }}

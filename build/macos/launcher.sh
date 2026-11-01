@@ -12,20 +12,37 @@ FW=/Library/Frameworks/R.framework
 
 alert() { /usr/bin/osascript -e "display alert \"ANCHOR Studio\" message \"$1\" as critical" >/dev/null 2>&1; }
 
-# minor version (e.g. 4.5) reported by an Rscript, with RHOME pointing at its own folder
-minor_of() { RHOME="$2" "$1" -e 'cat(R.version$major, ".", sub("\\..*", "", R.version$minor), sep = "")' 2>/dev/null; }
+# The R start script (bin/R) inside every R version folder points at the Mac's *default* R
+# (R.framework/Resources = Versions/Current), so running it directly would start the default version.
+# To run the wanted version without changing the default, a small private R home is made whose bin/R and
+# bin/Rscript point at itself and whose other folders link to the real version folder. Child R processes
+# (background analyses) start from R.home() and so also get the right version.
+PRIV="$HOME/Library/Caches/ANCHOR-Studio"
+make_home() {  # $1 = real R home (.../Versions/<v>/Resources); sets RH and RS
+  local real="$1" ver home f n
+  ver="$(basename "$(dirname "$real")")"; home="$PRIV/R-$ver"
+  rm -rf "$home"; mkdir -p "$home/bin" || return 1
+  for f in "$real"/*; do n="$(basename "$f")"; [ "$n" = bin ] || ln -s "$f" "$home/$n"; done
+  for f in "$real"/bin/*; do n="$(basename "$f")"; case "$n" in R|Rscript) ;; *) ln -s "$f" "$home/bin/$n" ;; esac; done
+  sed -e "s|/Library/Frameworks/R.framework/Resources|$home|g" "$real/bin/R" > "$home/bin/R" || return 1
+  printf '#!/bin/sh\nRHOME="%s" exec "%s" "$@"\n' "$home" "$real/bin/Rscript" > "$home/bin/Rscript"
+  chmod +x "$home/bin/R" "$home/bin/Rscript"
+  RH="$home"; RS="$home/bin/R"
+}
+
+# minor version (e.g. 4.6) of the R that a start script really runs
+minor_of() { "$1" --no-echo --no-save --no-restore -e 'cat(R.version$major, ".", sub("\\..*", "", R.version$minor), sep = "")' 2>>"$LOG"; }
 
 find_r() {
   RS=""; RH=""
+  local d
   for d in "$FW"/Versions/"$NEED_MINOR"*/Resources; do
-    [ -x "$d/bin/Rscript" ] || continue
-    if [ "$(minor_of "$d/bin/Rscript" "$d")" = "$NEED_MINOR" ]; then RS="$d/bin/Rscript"; RH="$d"; return 0; fi
+    [ -x "$d/bin/exec/R" ] || continue
+    make_home "$d" || continue
+    if [ "$(minor_of "$RS")" = "$NEED_MINOR" ]; then return 0; fi
+    echo "$(date) · $d did not start as R $NEED_MINOR" >>"$LOG"
   done
-  # fallback: the default R, if it happens to be the right version
-  if [ -x "$FW/Resources/bin/Rscript" ] && [ "$(minor_of "$FW/Resources/bin/Rscript" "$FW/Resources")" = "$NEED_MINOR" ]; then
-    RS="$FW/Resources/bin/Rscript"; RH="$FW/Resources"; return 0
-  fi
-  return 1
+  RS=""; RH=""; return 1
 }
 
 # Files downloaded from the internet carry a quarantine flag that can block R from loading
@@ -54,7 +71,8 @@ APPLESCRIPT
 fi
 
 echo "=== $(date) · R at $RH ===" >>"$LOG"
-RHOME="$RH" R_HOME="$RH" "$RS" --no-save --no-restore "$RES/app/launch.R" --lib "$RES/library" >>"$LOG" 2>&1
+unset R_HOME RHOME
+"$RS" --no-echo --no-save --no-restore --file="$RES/app/launch.R" --args --lib "$RES/library" >>"$LOG" 2>&1
 STATUS=$?
 if [ $STATUS -ne 0 ]; then alert "ANCHOR Studio stopped with an error. Details are in $LOG"; fi
 exit $STATUS
