@@ -47,6 +47,15 @@ Fixed in 1.4.5: on Windows the app started but its window never opened when Micr
 log, and a "ANCHOR Studio - troubleshoot" Start-menu entry runs the app with all its messages visible. The installer closes a
 running copy before replacing it.
 
+New in 1.7.0: a **Proposal / thesis** tab (proposal first; a thesis follows). Choose an outline (a general research proposal or
+the FernUniversität exposé guide) and the document's language; each chapter links to the approved text of the phases you pick,
+and is flagged when a phase changes until you accept the new text. Add your own text (with versions you can restore), a timeline
+drawn as a chart, figures from the report or your own, appendix files and private files that are never exported. Checks count
+words against your limit, match every in-text citation to a reference and list empty parts. Exports: Word on your own template
+(.docx or .dotx; its title page, styles and chapter numbering are kept), PDF and a LaTeX package for Overleaf, each with an AI
+statement built from the logs and a declaration. Corrections to the decision log: select an entry and add a correction; the
+original stays and is marked as corrected.
+
 New in 1.6.0: **corrections you can trace.** An approved phase is locked: "Edit this approved phase" asks first, then reopens it,
 marks later approved phases "needs review" and logs the change. Every version of every draft is kept (AI draft, AI revision,
 pasted answer, your edits, the approved text) and can be shown or restored; a restore is logged. A new data import or an exclusion of
@@ -135,7 +144,7 @@ Never commit article PDFs to this repository; `*.pdf` is ignored on purpose.
 compiles the `ANCHOR Studio.exe` launcher with mingw-w64, and packs a 64-bit NSIS installer plus a portable zip
 into `dist-win/`. It needs `curl`, `zip`, `mingw-w64` and `nsis` (Ubuntu: `apt install mingw-w64 nsis zip`);
 with `TEST=1` and `wine64` + `xvfb` installed it also runs the smoke test on the Windows build.
-`packages-win64.lock.txt` lists the exact package versions of release 1.6.0.
+`packages-win64.lock.txt` lists the exact package versions of release 1.7.0.
 Set `TYPST_VERSION` to change the bundled Typst version (default 0.15.1) in the GitHub builds.
 
 ## Run from source (any system with R)
@@ -147,7 +156,7 @@ shiny::runApp("app")
 
 ## Cite
 
-Kastour, A. M. (2026). *ANCHOR Studio* (Version 1.6.0) [Computer software].
+Kastour, A. M. (2026). *ANCHOR Studio* (Version 1.7.0) [Computer software].
 Aria, M., & Cuccurullo, C. (2017). bibliometrix: An R-tool for comprehensive science mapping analysis. *Journal of Informetrics, 11*(4), 959–975. https://doi.org/10.1016/j.joi.2017.08.007
 
 ## Dedication

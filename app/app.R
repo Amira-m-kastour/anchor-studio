@@ -47,7 +47,7 @@ new_state <- function() {
     prisma = NULL, report_items = list(),
     online = NULL, online_ds = NULL,
     analysis = list(datasets = list(), results = list(), include_data = FALSE),
-    prereq = new_prereq(), focal_oa = NULL, finder = NULL
+    prereq = new_prereq(), focal_oa = NULL, finder = NULL, proposal = NULL
   )
 }
 
@@ -268,7 +268,12 @@ ui <- page_navbar(
            downloadButton("dl_decisions", "Decision log (.csv)"), downloadButton("dl_project", "Project file (.anchor)"),
            p(class = "small text-muted mt-2", icon("triangle-exclamation"), " The project file contains the full text of the article you uploaded. Share it only with people allowed to read that article (for example your supervisor), never publicly."),
            hr(), h6("Disclosure"), verbatimTextOutput("disc_preview")),
-      card(card_header("Report preview"), uiOutput("report_preview")))),
+      div(card(card_header("Report preview"), uiOutput("report_preview")),
+          card(card_header("Decision log"),
+               p(class = "small text-muted", "Entries cannot be changed or deleted. To correct one, select it and add a correction: it is logged beside the original, with your reason, and appears in every report."),
+               DT::DTOutput("dec_table"),
+               actionButton("dec_correct", "Add a correction to the selected entry", icon = icon("pen-to-square"), class = "btn-sm btn-outline-secondary mt-2"))))),
+  nav_panel("Proposal / thesis", value = "proposal", icon = icon("file-signature"), proposal_ui()),
   nav_panel("Settings", value = "settings", icon = icon("gear"),
     layout_columns(col_widths = c(6, 6),
       card(card_header("Drafting mode"),
@@ -579,7 +584,10 @@ server <- function(input, output, session) {
     p("Editing reopens this phase. Later approved phases are marked 'needs review', and the change is logged. The approved text stays in the versions list."),
     footer = tagList(modalButton("Keep it approved"), actionButton(paste0(id, "_edit_go"), "Reopen and edit", class = "btn-warning"))))
   typed <- new.env()   # phases whose draft you typed in since the last version
-  observe({ invalidateLater(60000); for (id in PHASE_IDS) if (isTRUE(typed[[id]])) { snap(id, "your edits"); typed[[id]] <- FALSE } })   # your typing, kept once a minute
+  observe({ invalidateLater(60000); for (id in ls(typed)) if (isTRUE(typed[[id]])) {   # your typing, kept once a minute
+    if (startsWith(id, "P:")) { s <- Filter(function(x) identical(x$id, sub("^P:", "", id)), isolate(st$proposal$sections)); if (length(s)) snap(id, "your edits", s[[1]]$text) } else snap(id, "your edits")
+    typed[[id]] <- FALSE } })
+  proposal_server(input, output, session, st, log_decision, snap, typed, ui_lang)
 
   lapply(PHASES, function(p) {
     id <- p$id
@@ -1140,6 +1148,32 @@ server <- function(input, output, session) {
   output$dl_bib <- downloadHandler(function() stamp("_references.bib"), function(file) writeLines(enc2utf8(build_bib(snapshot())), file, useBytes = TRUE))
   output$dl_disc <- downloadHandler(function() stamp("_disclosure.txt"), function(file) writeLines(disclosure_text(snapshot()), file))
   output$dl_prompts <- downloadHandler(function() stamp("_prompts.csv"), function(file) utils::write.csv(st$prompts, file, row.names = FALSE))
+  # ---------------- decision log: corrections are added beside the original entry, never written over it
+  corr_prefix <- "Correction to the entry of "
+  output$dec_table <- DT::renderDT({
+    d <- st$decisions; if (!nrow(d)) return(DT::datatable(data.frame(Note = "No decisions yet."), rownames = FALSE, options = list(dom = "t")))
+    corrected <- vapply(seq_len(nrow(d)), function(i) any(startsWith(d$decision, paste0(corr_prefix, d$time[i], " (", d$decision[i], ")"))), TRUE)
+    show <- data.frame(Time = d$time, Phase = d$phase, Decision = ifelse(corrected, paste(d$decision, "[corrected]"), d$decision), Note = d$note)
+    DT::datatable(show[rev(seq_len(nrow(show))), ], rownames = FALSE, selection = "single", options = list(pageLength = 8, dom = "tip", order = list()))
+  })
+  observeEvent(input$dec_correct, {
+    s <- input$dec_table_rows_selected; d <- st$decisions
+    if (!length(s) || !nrow(d)) return(showNotification("Select an entry in the decision log first.", type = "message"))
+    i <- rev(seq_len(nrow(d)))[s]
+    showModal(modalDialog(title = "Add a correction",
+      p(tags$b(d$time[i], "\u00b7", d$phase[i], "\u00b7", d$decision[i]), if (nzchar(d$note[i])) p(class = "small text-muted", d$note[i])),
+      textAreaInput("dec_reason", "What was wrong, and what is correct?", rows = 4, width = "100%"),
+      footer = tagList(modalButton("Cancel"), actionButton("dec_correct_go", "Add the correction", class = "btn-primary"))))
+    dec_target(i)
+  })
+  dec_target <- reactiveVal(NULL)
+  observeEvent(input$dec_correct_go, {
+    i <- dec_target(); d <- isolate(st$decisions); r <- trimws(input$dec_reason %||% "")
+    if (is.null(i) || i > nrow(d)) return(removeModal())
+    if (!nzchar(r)) return(showNotification("Write what was wrong and what is correct.", type = "warning"))
+    removeModal(); log_decision(d$phase[i], paste0(corr_prefix, d$time[i], " (", d$decision[i], ")"), r)
+    showNotification("Correction added to the decision log.", type = "message")
+  })
   output$dl_decisions <- downloadHandler(function() stamp("_decisions.csv"), function(file) utils::write.csv(st$decisions, file, row.names = FALSE))
   strip_data <- function(s) { inc <- isTRUE(s$analysis$include_data)
     s$analysis$datasets <- lapply(s$analysis$datasets %||% list(), function(d) { if (isTRUE(d$licensed) || !inc) d$data <- NULL; d }); s }

@@ -55,9 +55,10 @@
   function walk(root) {
     if (!root) return;
     if (root.nodeType === 3) { if (!skip(root.parentElement)) doText(root); return; }
+    if (root.nodeType === 1 && (root.tagName === 'TEXTAREA' || root.tagName === 'INPUT')) { if (!skip(root.parentElement)) doAttrs(root); return; }   // placeholder and title only, never what you typed
     if (root.nodeType !== 1 || skip(root)) return;
     doAttrs(root);
-    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, { acceptNode: function (n) { return n.nodeType === 1 && SKIP[n.tagName] ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT; } });
+    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, { acceptNode: function (n) { if (n.nodeType === 1 && n.tagName === 'TEXTAREA') { doAttrs(n); return NodeFilter.FILTER_REJECT; } return n.nodeType === 1 && SKIP[n.tagName] ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT; } });
     var n; while ((n = w.nextNode())) { if (n.nodeType === 1) { if (!(n.classList && n.classList.contains('no-i18n'))) doAttrs(n); } else if (!skip(n.parentElement)) doText(n); }
   }
   var queue = [], busy = false, obs = null;

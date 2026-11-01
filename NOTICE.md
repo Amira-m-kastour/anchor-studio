@@ -91,3 +91,10 @@ drafts, data, figures and reports are never changed.
 
 Draft versions are kept inside the project file, like the drafts themselves; they are never put in reports or shared packages
 other than the project file. The prompt log is unchanged by any correction.
+
+## Added in 1.7.0
+
+Proposal / thesis tab: your Word template, figures and attachments are kept inside the project file (up to 20 MB each) and
+are used only in your own exports; files marked private are never exported. The timeline chart is drawn with ggplot2 (GPL-2/3).
+The FernUniversität exposé preset follows the public guide of the Lehrgebiet Politikwissenschaft I; it is not an official
+template of the university.

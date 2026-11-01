@@ -1,0 +1,47 @@
+{
+  "en": {
+    "kinds": {"intro": "Introduction and problem", "rq": "Research questions and hypotheses", "concepts": "Key concepts", "state": "State of research", "method": "Method and data",
+              "outline": "Provisional outline", "timeline": "Timeline", "resources": "Resources and data access", "ethics": "Ethics and data management",
+              "contribution": "Expected contribution", "text": "New section", "appendix": "Appendix"},
+    "doc_proposal": "Research proposal", "doc_expose": "Exposé", "contents": "Contents", "figure": "Figure", "table": "Table",
+    "milestone": "Milestone", "start": "Start", "end": "End", "author": "Submitted by", "programme": "Programme", "supervisor": "Supervisor",
+    "references": "References", "appendix": "Appendix", "attached": "Attached file", "declaration": "Declaration", "ai_statement": "AI statement",
+    "declaration_text": "I declare that I wrote this proposal myself, that I used only the sources and aids named in it, and that I marked every passage taken from other works. Tools based on artificial intelligence are listed in the AI statement.",
+    "ai_intro": "The following sections draw on text produced with AI tools in ANCHOR Studio. The prompts are recorded in the prompt log of the project.",
+    "ai_none": "No section of this proposal draws on text produced with AI tools.",
+    "ai_unchanged": "drafted with AI ({tool}), checked by me, not changed",
+    "ai_edited": "drafted with AI ({tool}), edited and checked by me",
+    "own": "written by me",
+    "place_date": "Place and date", "signature": "Signature"
+  },
+  "de": {
+    "kinds": {"intro": "Einleitung und Problemstellung", "rq": "Forschungsfragen und Hypothesen", "concepts": "Zentrale Begriffe", "state": "Forschungsstand", "method": "Methode und Daten",
+              "outline": "Vorläufige Gliederung", "timeline": "Zeitplan", "resources": "Ressourcen und Datenzugang", "ethics": "Ethik und Datenmanagement",
+              "contribution": "Erwarteter Beitrag", "text": "Neuer Abschnitt", "appendix": "Anhang"},
+    "doc_proposal": "Forschungsvorhaben", "doc_expose": "Exposé", "contents": "Inhaltsverzeichnis", "figure": "Abbildung", "table": "Tabelle",
+    "milestone": "Meilenstein", "start": "Beginn", "end": "Ende", "author": "Vorgelegt von", "programme": "Studiengang", "supervisor": "Betreuung",
+    "references": "Literaturverzeichnis", "appendix": "Anhang", "attached": "Beigefügte Datei", "declaration": "Erklärung", "ai_statement": "Hilfsmittelverzeichnis (KI)",
+    "declaration_text": "Ich erkläre, dass ich dieses Exposé selbstständig verfasst, nur die angegebenen Quellen und Hilfsmittel benutzt und alle aus anderen Werken übernommenen Stellen kenntlich gemacht habe. KI-gestützte Hilfsmittel sind im Hilfsmittelverzeichnis aufgeführt.",
+    "ai_intro": "Die folgenden Abschnitte beruhen auf Text, der in ANCHOR Studio mit KI-Werkzeugen erstellt wurde. Die Prompts sind im Prompt-Protokoll des Projekts festgehalten.",
+    "ai_none": "Kein Abschnitt dieses Exposés beruht auf Text, der mit KI-Werkzeugen erstellt wurde.",
+    "ai_unchanged": "mit KI entworfen ({tool}), von mir geprüft, nicht verändert",
+    "ai_edited": "mit KI entworfen ({tool}), von mir bearbeitet und geprüft",
+    "own": "von mir verfasst",
+    "place_date": "Ort und Datum", "signature": "Unterschrift"
+  },
+  "ar": {
+    "kinds": {"intro": "المقدمة والمشكلة", "rq": "أسئلة البحث والفرضيات", "concepts": "المفاهيم الأساسية", "state": "الدراسات السابقة", "method": "المنهج والبيانات",
+              "outline": "المخطط المبدئي", "timeline": "الجدول الزمني", "resources": "الموارد والوصول إلى البيانات", "ethics": "الأخلاقيات وإدارة البيانات",
+              "contribution": "الإسهام المتوقع", "text": "قسم جديد", "appendix": "الملحق"},
+    "doc_proposal": "مقترح بحثي", "doc_expose": "مقترح بحثي موجز", "contents": "المحتويات", "figure": "شكل", "table": "جدول",
+    "milestone": "المرحلة", "start": "البداية", "end": "النهاية", "author": "إعداد", "programme": "البرنامج", "supervisor": "المشرف",
+    "references": "المراجع", "appendix": "الملحق", "attached": "ملف مرفق", "declaration": "إقرار", "ai_statement": "بيان استخدام الذكاء الاصطناعي",
+    "declaration_text": "أقرّ بأنني كتبت هذا المقترح بنفسي، ولم أستخدم إلا المصادر والأدوات المذكورة فيه، وأشرت إلى كل ما أخذته من أعمال أخرى. وترد الأدوات القائمة على الذكاء الاصطناعي في بيان استخدام الذكاء الاصطناعي.",
+    "ai_intro": "تستند الأقسام التالية إلى نص أُعدّ بأدوات الذكاء الاصطناعي في ANCHOR Studio. والتعليمات مسجّلة في سجل التعليمات للمشروع.",
+    "ai_none": "لا يستند أي قسم من هذا المقترح إلى نص أُعدّ بأدوات الذكاء الاصطناعي.",
+    "ai_unchanged": "صيغ بالذكاء الاصطناعي ({tool})، راجعته دون تغيير",
+    "ai_edited": "صيغ بالذكاء الاصطناعي ({tool})، عدّلته وراجعته",
+    "own": "كتبته بنفسي",
+    "place_date": "المكان والتاريخ", "signature": "التوقيع"
+  }
+}

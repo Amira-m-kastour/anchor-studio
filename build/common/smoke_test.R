@@ -185,6 +185,15 @@ step("Find a focal article and citation styles (test data)", {
   stopifnot(grepl("How the focal article was chosen", build_content_tex(st, character(0)), fixed = TRUE))
   st$prompts <- data.frame(time = "2026-10-27 10:00", phase = "Find", mode = "prompt", prompt = "p"); stopifnot(grepl("only to summarise the abstracts", disclosure_text(st)))
 })
+step("Proposal / thesis tab: outline, checks, Word, LaTeX (and PDF when a browser is found)", {
+  st <- new_state(); st$setup <- list(S_name = "Smoke Test"); st$article <- list(title = "T", citation = "Serafeim, G., & Yoon, A. (2023). Stock price reactions to ESG news.")
+  for (j in c("A", "N", "C", "H", "O")) { st$phases[[j]]$status <- "approved"; st$phases[[j]]$draft <- paste("Text of phase", j, "(Serafeim & Yoon, 2023).") }
+  for (lang in c("en", "de", "ar")) { st$proposal <- new_proposal("general", lang, st); st$proposal$milestones <- data.frame(milestone = "Review", start = "2026-11-01", end = "2026-11-30", stringsAsFactors = FALSE)
+    f <- tempfile(fileext = ".docx"); build_proposal_docx(st, f); stopifnot(file.size(f) > 10000, nrow(officer::docx_summary(officer::read_docx(f))) > 20)
+    z <- tempfile(fileext = ".zip"); build_proposal_latex_zip(st, z); stopifnot(file.size(z) > 1000) }
+  stopifnot(nrow(prop_check_citations(st$proposal, st)$missing) == 0, !grepl("Tribute|Kastour family", build_proposal_html(st)))
+  if (!is.null(find_browser())) { pf <- tempfile(fileext = ".pdf"); build_proposal_pdf(st, pf); stopifnot(file.size(pf) > 5000) }
+})
 step("exports work as in the running app (without app.R's own objects)", {
   # shiny::runApp() evaluates app.R in its own environment, so functions in R/ must not rely on objects created in app.R
   own <- intersect(c("PHASE_IDS", "new_state", "q_input", "phase_shell", "analysis_ui", "dm_ui", "lessons_card", "theme", "ui", "server", "rscript_path"), ls(globalenv()))

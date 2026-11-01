@@ -1,7 +1,7 @@
 1 ICON "anchor.ico"
 1 VERSIONINFO
-FILEVERSION 1,6,0,0
-PRODUCTVERSION 1,6,0,0
+FILEVERSION 1,7,0,0
+PRODUCTVERSION 1,7,0,0
 BEGIN
   BLOCK "StringFileInfo"
   BEGIN
@@ -9,12 +9,12 @@ BEGIN
     BEGIN
       VALUE "CompanyName", "Amira Mamdouh Kastour"
       VALUE "FileDescription", "ANCHOR Studio by A. Mamdouh Kastour"
-      VALUE "FileVersion", "1.6.0"
+      VALUE "FileVersion", "1.7.0"
       VALUE "InternalName", "ANCHOR Studio"
       VALUE "LegalCopyright", "(c) 2026 Amira Mamdouh Kastour, GPL-3"
       VALUE "OriginalFilename", "ANCHOR Studio.exe"
       VALUE "ProductName", "ANCHOR Studio"
-      VALUE "ProductVersion", "1.6.0"
+      VALUE "ProductVersion", "1.7.0"
     END
   END
   BLOCK "VarFileInfo"

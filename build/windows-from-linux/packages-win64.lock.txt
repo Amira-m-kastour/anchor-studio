@@ -1,4 +1,4 @@
-# ANCHOR Studio 1.6.0 - conda-forge win-64 packages (name version build)
+# ANCHOR Studio 1.7.0 - conda-forge win-64 packages (name version build)
 _openmp_mutex 4.5 20_gnu
 _r-mutex 1.0.1 anacondar_1
 binutils_impl_win-64 2.46.1 default_ha84baeb_103
